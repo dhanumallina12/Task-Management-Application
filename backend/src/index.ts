@@ -1,10 +1,10 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { errorHandler, notFound } from './middleware/errorHandler';
 
 dotenv.config();
 
@@ -12,34 +12,51 @@ const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI!)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK' });
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'OK' });
 });
 
-// Error handling
-app.use(notFoundHandler);
+// 404 handler
+app.use(notFound);
+
+// Error handler
 app.use(errorHandler);
+
+// MongoDB Connection
+const connectDB = async () => {
+  try {
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/task-management';
+    
+    await mongoose.connect(mongoUri);
+    console.log('✅ MongoDB connected successfully');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  }
+};
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Server start error:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;
